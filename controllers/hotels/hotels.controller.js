@@ -411,3 +411,50 @@ export const bookRoom = async (req, res, next) => {
     );
   }
 };
+
+export const BookingDetails = async (req, res, next) => {
+  try {
+    const userName = process.env.TBO_USER_NAME;
+    const password = process.env.TBO_PASSWORD;
+
+    const { BookingReferenceId } = req.body;
+
+    if (!BookingReferenceId) {
+      return res.status(400).json({
+        success: false,
+        message: "BookingReferenceId is required",
+      });
+    }
+
+    const detailsResponse = await axios.post(
+      "http://api.tbotechnology.in/TBOHolidays_HotelAPI/BookingDetail",
+      {
+        BookingReferenceId: BookingReferenceId,
+        PaymentMode: "PayLater", // or the mode you actually use
+      },
+      {
+        auth: {
+          username: userName,
+          password: password,
+        },
+      }
+    );
+
+    // forward TBO API response to client
+    return res.status(200).json({
+      success: true,
+      data: detailsResponse.data,
+    });
+  } catch (error) {
+    console.error("BookingDetails error:", error?.response?.data || error);
+
+    return next(
+      new ApiError(
+        error.response?.status || 500,
+        error.response?.data?.errors?.[0]?.detail ||
+          error.response?.data?.error ||
+          "Error fetching booking details from TBO"
+      )
+    );
+  }
+};
