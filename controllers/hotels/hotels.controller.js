@@ -1,6 +1,8 @@
 import axios from "axios";
 import { ApiError } from "../../utils/apiError.js";
 
+const presentageCommission = 5;
+
 const formatDate = (dateStr) => {
   const date = new Date(dateStr);
   const year = date.getFullYear();
@@ -28,7 +30,7 @@ export const getCountryList = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for countries"
+        "Error searching for countries"
       )
     );
   }
@@ -59,7 +61,7 @@ export const getCityList = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for cities"
+        "Error searching for cities"
       )
     );
   }
@@ -220,6 +222,7 @@ export const hotelsSearch = async (req, res, next) => {
         ...hotel,
         MinHotelPrice:
           matched?.Rooms?.[0]?.DayRates?.[0]?.[0]?.BasePrice || null,
+        presentageCommission
       };
     });
 
@@ -243,7 +246,7 @@ export const hotelsSearch = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for hotels"
+        "Error searching for hotels"
       )
     );
   }
@@ -313,6 +316,7 @@ export const getHotelDetails = async (req, res, next) => {
       data: {
         hotel,
         availableRooms,
+        presentageCommission
       },
     });
   } catch (error) {
@@ -320,7 +324,7 @@ export const getHotelDetails = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for Hotel Details "
+        "Error searching for Hotel Details "
       )
     );
   }
@@ -349,7 +353,7 @@ export const preBookRoom = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for Hotel Details "
+        "Error searching for Hotel Details "
       )
     );
   }
@@ -406,7 +410,7 @@ export const bookRoom = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for Hotel Details"
+        "Error searching for Hotel Details"
       )
     );
   }
@@ -452,8 +456,8 @@ export const BookingDetails = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          error.response?.data?.error ||
-          "Error fetching booking details from TBO"
+        error.response?.data?.error ||
+        "Error fetching booking details from TBO"
       )
     );
   }
