@@ -1,5 +1,5 @@
 import express from "express";
-import { InitiateSession, ExecutePayment, GetPaymentStatus, GetBookingStatus, captureAuthorizedPayment, releaseAuthorizedPayment, PaymentWebhook } from "../../controllers/payment/payment.controller.js";
+import { InitiateSession, ExecutePayment, GetPaymentStatus, GetBookingStatus, captureAuthorizedPayment, releaseAuthorizedPayment, PaymentWebhook, saveDataToDb } from "../../controllers/payment/payment.controller.js";
 
 const router = express.Router();
 
@@ -11,6 +11,8 @@ router.post("/paymentStatus", GetPaymentStatus);
 router.post("/bookingStatus", GetBookingStatus);
 router.post("/captureAmount", captureAuthorizedPayment);
 router.post("/releaseAmount", releaseAuthorizedPayment);
+router.post("/saveData", saveDataToDb);
+
 
 
 export default router;

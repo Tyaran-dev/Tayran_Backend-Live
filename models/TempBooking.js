@@ -8,9 +8,14 @@ const TempBookingSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    bookingType: {
+      type: String,
+      enum: ["flight", "hotel"],
+      required: true,
+    },
     bookingData: {
-      flightOffer: { type: Object, required: true },
-      travelers: { type: Array, required: true },
+      type: Object, // can store either flightData or hotelData
+      required: true,
     },
     status: {
       type: String,
@@ -25,6 +30,10 @@ const TempBookingSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-const TempBookingTicket = mongoose.model("TempBookingTicket", TempBookingSchema);
+
+const TempBookingTicket = mongoose.model(
+  "TempBookingTicket",
+  TempBookingSchema
+);
 
 export default TempBookingTicket;

@@ -756,3 +756,34 @@ export const releaseAuthorizedPayment = async (req, res, next) => {
     next(new ApiError(500, "releaseAuthorizedPayment failed"));
   }
 };
+
+
+export const saveDataToDb = async (req, res, next) => {
+  try {
+    const { invoiceId, flightData, hotelData } = req.body;
+
+    console.log(req.body, "here123")
+
+    // ✅ Validate required fields
+    if (!invoiceId || (!flightData && !hotelData)) {
+      return next(new ApiError(400, "Missing required fields"));
+    }
+
+    // 📝 Save either flight or hotel booking data
+    await TempBookingTicket.create({
+      invoiceId,
+      bookingType: flightData ? "flight" : "hotel",
+      bookingData: flightData
+        ? { flightOffer: flightData.flightOffer, travelers: flightData.travelers }
+        : { hotelData },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Booking data saved successfully",
+    });
+  } catch (error) {
+    console.error("saveDataToDb error:", error);
+    next(new ApiError(500, "Failed to save booking data"));
+  }
+};
