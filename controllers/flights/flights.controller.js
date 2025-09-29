@@ -509,6 +509,8 @@ export const flightBooking = async (req, res, next) => {
     const { flightOffer, travelers, ticketingAgreement } = req.body;
     const baseUrl = process.env.AMADEUS_BASE_URL;
 
+    console.log("flight order from webhook")
+
     if (!flightOffer || !travelers) {
       return next(new ApiError(400, "Missing flightOffer or travelers"));
     }
