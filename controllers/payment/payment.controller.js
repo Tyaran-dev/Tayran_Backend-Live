@@ -60,7 +60,7 @@ export const ExecutePayment = async (req, res, next) => {
       `${apiBase}/v2/ExecutePayment`,
       {
         SessionId: sessionId,
-        InvoiceValue: 1 , //invoiceValue,
+        InvoiceValue: 1, //invoiceValue,
         ProcessingDetails: {
           AutoCapture: false, // We will capture in webhook after booking success
         },
@@ -366,7 +366,7 @@ export const PaymentWebhook = async (req, res) => {
           console.log("Processing hotel booking with payload:", {
             invoiceId: InvoiceId,
             bookingCode: hotelPayload.BookingCode,
-            customerCount: hotelPayload.CustomerDetails?.reduce((total, room) => 
+            customerCount: hotelPayload.CustomerDetails?.reduce((total, room) =>
               total + (room.CustomerNames?.length || 0), 0)
           });
 
@@ -667,26 +667,40 @@ export const GetPaymentStatus = async (req, res, next) => {
 
 export const GetBookingStatus = async (req, res) => {
   try {
-    const { paymentId } = req.body;
+    const { paymentId, invoiceId } = req.body;
+
+    // 🟢 Decide which key to use for MyFatoorah call
+    let Key, KeyType;
+    if (invoiceId) {
+      Key = invoiceId;
+      KeyType = "InvoiceId";
+    } else if (paymentId) {
+      Key = paymentId;
+      KeyType = "PaymentId";
+    } else {
+      return res.status(400).json({ error: "Missing paymentId or invoiceId" });
+    }
 
     const apiBase = process.env.MYFATOORAH_API_URL;
     const token = process.env.MYFATOORAH_TEST_TOKEN;
 
+    // 🟢 Call MyFatoorah with dynamic KeyType
     const { data } = await axios.post(
       `${apiBase}/v2/GetPaymentStatus`,
-      { Key: paymentId, KeyType: "PaymentId" },
+      { Key, KeyType },
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    const invoiceId = data?.Data?.InvoiceId;
+    // 🟢 Always extract InvoiceId from response
+    const resolvedInvoiceId = data?.Data?.InvoiceId || invoiceId;
     const transactions = data?.Data?.InvoiceTransactions || [];
 
-    if (!invoiceId) {
+    if (!resolvedInvoiceId) {
       return res.json({ status: "PENDING" });
     }
 
     // 🔹 Check if already saved in DB
-    const booking = await FinalBooking.findOne({ invoiceId });
+    const booking = await FinalBooking.findOne({ invoiceId: resolvedInvoiceId });
     if (booking) {
       return res.json({
         status: booking.status,
@@ -719,13 +733,11 @@ export const GetBookingStatus = async (req, res) => {
     // ⏳ Default fallback → still pending
     return res.json({ status: "PENDING" });
   } catch (err) {
-    console.error(
-      "GetBookingStatus error:",
-      err?.response?.data || err.message
-    );
+    console.error("GetBookingStatus error:", err?.response?.data || err.message);
     return res.status(500).json({ error: "Server error" });
   }
 };
+
 
 export const captureAuthorizedPayment = async (req, res, next) => {
   try {
