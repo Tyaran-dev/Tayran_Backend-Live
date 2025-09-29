@@ -207,6 +207,8 @@ export const PaymentWebhook = async (req, res) => {
     const signature = req.headers["myfatoorah-signature"];
     const { Data } = req.body;
 
+    console.log("webhook fired")
+
     if (!signature) {
       return res.status(400).json({ error: "Missing signature" });
     }
