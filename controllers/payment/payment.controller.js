@@ -30,11 +30,25 @@ export const InitiateSession = async (req, res, next) => {
 export const ExecutePayment = async (req, res, next) => {
   try {
     const { sessionId, invoiceValue, flightData, travelers, hotelData } = req.body;
+
     const apiBase = process.env.MYFATOORAH_API_URL;
     const token = process.env.MYFATOORAH_TEST_TOKEN;
 
-    if (!sessionId || !invoiceValue || (!flightData || travelers && !hotelData)) {
-      return next(new ApiError(400, "Missing required fields"));
+    // ✅ FIXED: Proper validation for both flight and hotel bookings
+    if (!sessionId || !invoiceValue) {
+      return next(new ApiError(400, "Missing sessionId or invoiceValue"));
+    }
+
+    // Validate that we have either flight data or hotel data (but not both)
+    const hasFlightData = flightData && travelers;
+    const hasHotelData = hotelData;
+
+    if (!hasFlightData && !hasHotelData) {
+      return next(new ApiError(400, "Missing booking data: either flightData+travelers or hotelData required"));
+    }
+
+    if (hasFlightData && hasHotelData) {
+      return next(new ApiError(400, "Cannot have both flightData and hotelData"));
     }
 
     // ✅ Tell MyFatoorah where to redirect after payment
@@ -46,7 +60,7 @@ export const ExecutePayment = async (req, res, next) => {
       `${apiBase}/v2/ExecutePayment`,
       {
         SessionId: sessionId,
-        InvoiceValue: invoiceValue,
+        InvoiceValue: 1 , //invoiceValue,
         ProcessingDetails: {
           AutoCapture: false, // We will capture in webhook after booking success
         },
@@ -67,12 +81,21 @@ export const ExecutePayment = async (req, res, next) => {
     }
 
     // 📝 Save either flight or hotel booking data
+    const bookingType = flightData ? "flight" : "hotel";
+
     await TempBookingTicket.create({
       invoiceId,
-      bookingType: flightData ? "flight" : "hotel",
+      bookingType: bookingType,
       bookingData: flightData
-        ? { flightOffer: flightData, travelers }
-        : { hotelData }, // store full hotelData payload
+        ? {
+          flightOffer: flightData,
+          travelers,
+          bookingType: "flight" // Explicitly set for clarity
+        }
+        : {
+          hotelData,
+          bookingType: "hotel" // Explicitly set for clarity
+        },
     });
 
     // Send Payment URL back to frontend
@@ -80,6 +103,7 @@ export const ExecutePayment = async (req, res, next) => {
       success: true,
       paymentUrl: data?.Data?.PaymentURL,
       invoiceId,
+      bookingType: bookingType // Send back for frontend confirmation
     });
   } catch (err) {
     console.error("ExecutePayment error:", err?.response?.data || err.message);
@@ -176,9 +200,6 @@ export function buildHotelBookingPayload({ hotelData, travelers, finalPrice }) {
     TotalFare: finalPrice,
   };
 }
-
-
-
 // ---------------- Webhook ----------------
 export const PaymentWebhook = async (req, res) => {
   try {
@@ -342,6 +363,13 @@ export const PaymentWebhook = async (req, res) => {
           // rawBooking.hotelData already includes CustomerDetails, EmailId, PhoneNumber, etc.
           const hotelPayload = rawBooking.hotelData;
 
+          console.log("Processing hotel booking with payload:", {
+            invoiceId: InvoiceId,
+            bookingCode: hotelPayload.BookingCode,
+            customerCount: hotelPayload.CustomerDetails?.reduce((total, room) => 
+              total + (room.CustomerNames?.length || 0), 0)
+          });
+
           const response = await axios.post(
             `${process.env.BASE_URL}/hotels/hotel-booking`,
             hotelPayload
@@ -380,7 +408,7 @@ export const PaymentWebhook = async (req, res) => {
           invoiceId: InvoiceId,
           status: "FAILED",
           orderData: null,
-          bookingPayload: rawBooking, // <== fallback: save whatever was in tempBooking
+          bookingPayload: rawBooking,
         });
         await axios.post(`${process.env.BASE_URL}/payment/releaseAmount`, {
           Key: InvoiceId,
@@ -393,6 +421,7 @@ export const PaymentWebhook = async (req, res) => {
 
     if (TransactionStatus === "FAILED") {
       console.log("❌ Payment failed for invoice:", InvoiceId);
+      // Optionally update FinalBooking status here for failed payments
     }
 
     return res.status(200).json({ message: "Webhook processed" });
@@ -401,7 +430,6 @@ export const PaymentWebhook = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
-
 
 
 // old one
