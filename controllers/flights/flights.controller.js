@@ -530,7 +530,7 @@ export const flightBooking = async (req, res, next) => {
 
     // 1️⃣ Create flight order
     const response = await axios.post(
-      `${baseUrl}/v1/booking/flight-ordersss`,
+      `${baseUrl}/v1/booking/flight-orders`,
       payload,
       {
         headers: {
