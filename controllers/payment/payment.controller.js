@@ -173,34 +173,33 @@ function transformTravelers(travelersFromDb) {
 }
 
 // ---------------- Helper: Build Hotel Booking Payload ----------------
-export function buildHotelBookingPayload({ hotelData, travelers, finalPrice }) {
-  if (!hotelData || !Array.isArray(travelers)) {
-    throw new Error("Missing hotelData or travelers array");
-  }
+// export function buildHotelBookingPayload({ hotelData, travelers, finalPrice }) {
+//   if (!hotelData || !Array.isArray(travelers)) {
+//     throw new Error("Missing hotelData or travelers array");
+//   }
 
-  return {
-    BookingCode: hotelData.BookingCode, // comes from your hotel data
-    BookingReferenceId: `TBO-BOOK-${Date.now()}`,
-    BookingType: "Voucher",
-    ClientReferenceId: `BOOK-${Date.now()}`,
-    CustomerDetails: [
-      {
-        RoomIndex: 0,
-        CustomerNames: travelers.map((traveler) => ({
-          Title: traveler.title,
-          FirstName: traveler.firstName,
-          LastName: traveler.lastName,
-          Type: traveler.travelerType || "Adult",
-        })),
-      },
-    ],
-    EmailId: travelers[0]?.email || "",
-    PhoneNumber: `${travelers[0]?.phoneCode || ""}${travelers[0]?.phoneNumber || ""}`.replace(/\s/g, ""),
-    PaymentMode: "Limit",
-    TotalFare: finalPrice,
-  };
-}
-// ---------------- Webhook ----------------
+//   return {
+//     BookingCode: hotelData.BookingCode, // comes from your hotel data
+//     BookingReferenceId: `TBO-BOOK-${Date.now()}`,
+//     BookingType: "Voucher",
+//     ClientReferenceId: `BOOK-${Date.now()}`,
+//     CustomerDetails: [
+//       {
+//         RoomIndex: 0,
+//         CustomerNames: travelers.map((traveler) => ({
+//           Title: traveler.title,
+//           FirstName: traveler.firstName,
+//           LastName: traveler.lastName,
+//           Type: traveler.travelerType || "Adult",
+//         })),
+//       },
+//     ],
+//     EmailId: travelers[0]?.email || "",
+//     PhoneNumber: `${travelers[0]?.phoneCode || ""}${travelers[0]?.phoneNumber || ""}`.replace(/\s/g, ""),
+//     PaymentMode: "Limit",
+//     TotalFare: finalPrice,
+//   };
+// }
 export const PaymentWebhook = async (req, res) => {
   try {
     const secret = process.env.MYFATOORAH_WEBHOOK_SECRET;
