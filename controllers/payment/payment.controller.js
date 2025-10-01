@@ -243,7 +243,9 @@ export const PaymentWebhook = async (req, res) => {
       return res.status(400).json({ error: "Missing InvoiceId" });
     }
 
-    if (TransactionStatus === "AUTHORIZE") {
+    if (TransactionStatus === "AUTHORIZE" || TransactionStatus === "Authorize") {
+
+      console.log("if condtion ")
       const tempBooking = await TempBookingTicket.findOne({ invoiceId: InvoiceId });
       if (!tempBooking) {
         console.error("No booking data found for invoice:", InvoiceId);
