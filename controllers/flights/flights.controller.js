@@ -509,7 +509,7 @@ export const flightBooking = async (req, res, next) => {
     const { flightOffer, travelers, ticketingAgreement } = req.body;
     const baseUrl = process.env.AMADEUS_BASE_URL;
 
-    console.log("flight order from webhook");
+    console.log("flight order from controller by webhook 1");
 
     if (!flightOffer || !travelers) {
       return next(new ApiError(400, "Missing flightOffer or travelers"));
@@ -528,8 +528,8 @@ export const flightBooking = async (req, res, next) => {
       },
     };
 
-    console.log(flightOffer, "flightOffer");
-    console.log(payload, "payload");
+    console.log(flightOffer, "flightOffer from controller 2");
+    console.log(payload, "payload 3");
 
     // 1️⃣ Create flight order
     const response = await axios.post(
@@ -545,6 +545,8 @@ export const flightBooking = async (req, res, next) => {
 
     let orderData = response.data; // mutable
     const flightOrderId = orderData.data.id;
+
+    console.log("create order from controlller 4")
 
     // 2️⃣ Apply FM commission
     const commissionPayload = {
@@ -575,6 +577,9 @@ export const flightBooking = async (req, res, next) => {
       }
     );
 
+        console.log("fm added 5")
+
+
     // 3️⃣ Issue ticket
     const issuanceRes = await axios.post(
       `${baseUrl}/v1/booking/flight-orders/${flightOrderId}/issuance`,
@@ -586,6 +591,10 @@ export const flightBooking = async (req, res, next) => {
         },
       }
     );
+
+
+        console.log("issuance done 6")
+
 
     // 4️⃣ Return issuance response (contains ticket info)
     return res.status(201).json({

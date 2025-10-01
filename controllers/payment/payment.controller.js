@@ -173,40 +173,40 @@ function transformTravelers(travelersFromDb) {
 }
 
 // ---------------- Helper: Build Hotel Booking Payload ----------------
-// export function buildHotelBookingPayload({ hotelData, travelers, finalPrice }) {
-//   if (!hotelData || !Array.isArray(travelers)) {
-//     throw new Error("Missing hotelData or travelers array");
-//   }
+export function buildHotelBookingPayload({ hotelData, travelers, finalPrice }) {
+  if (!hotelData || !Array.isArray(travelers)) {
+    throw new Error("Missing hotelData or travelers array");
+  }
 
-//   return {
-//     BookingCode: hotelData.BookingCode, // comes from your hotel data
-//     BookingReferenceId: `TBO-BOOK-${Date.now()}`,
-//     BookingType: "Voucher",
-//     ClientReferenceId: `BOOK-${Date.now()}`,
-//     CustomerDetails: [
-//       {
-//         RoomIndex: 0,
-//         CustomerNames: travelers.map((traveler) => ({
-//           Title: traveler.title,
-//           FirstName: traveler.firstName,
-//           LastName: traveler.lastName,
-//           Type: traveler.travelerType || "Adult",
-//         })),
-//       },
-//     ],
-//     EmailId: travelers[0]?.email || "",
-//     PhoneNumber: `${travelers[0]?.phoneCode || ""}${travelers[0]?.phoneNumber || ""}`.replace(/\s/g, ""),
-//     PaymentMode: "Limit",
-//     TotalFare: finalPrice,
-//   };
-// }
+  return {
+    BookingCode: hotelData.BookingCode, // comes from your hotel data
+    BookingReferenceId: `TBO-BOOK-${Date.now()}`,
+    BookingType: "Voucher",
+    ClientReferenceId: `BOOK-${Date.now()}`,
+    CustomerDetails: [
+      {
+        RoomIndex: 0,
+        CustomerNames: travelers.map((traveler) => ({
+          Title: traveler.title,
+          FirstName: traveler.firstName,
+          LastName: traveler.lastName,
+          Type: traveler.travelerType || "Adult",
+        })),
+      },
+    ],
+    EmailId: travelers[0]?.email || "",
+    PhoneNumber: `${travelers[0]?.phoneCode || ""}${travelers[0]?.phoneNumber || ""}`.replace(/\s/g, ""),
+    PaymentMode: "Limit",
+    TotalFare: finalPrice,
+  };
+}
 export const PaymentWebhook = async (req, res) => {
   try {
     const secret = process.env.MYFATOORAH_WEBHOOK_SECRET;
     const signature = req.headers["myfatoorah-signature"];
     const { Data } = req.body;
 
-    console.log("webhook fired")
+    console.log("webhook fired  from webhook 1")
 
     if (!signature) {
       return res.status(400).json({ error: "Missing signature" });
@@ -233,7 +233,7 @@ export const PaymentWebhook = async (req, res) => {
       console.error("⚠️ Invalid webhook signature");
       return res.status(401).json({ error: "Invalid signature" });
     }
-    console.log("✅ Webhook verified");
+    console.log("✅ Webhook verified 2");
 
     const InvoiceId = Data.Invoice.Id;
     const TransactionStatus = Data.Transaction.Status;
@@ -268,8 +268,14 @@ export const PaymentWebhook = async (req, res) => {
             bookingPayload
           );
 
+          console.log(response, "response from webhook 3")
+
+
           if (response.status === 201) {
             const orderData = response.data.order;
+
+            console.log(response, "order done 201 from webhook 4")
+
 
             // Collect airline + airport codes
             const airlineCodes = new Set();
