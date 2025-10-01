@@ -200,6 +200,7 @@ export function buildHotelBookingPayload({ hotelData, travelers, finalPrice }) {
     TotalFare: finalPrice,
   };
 }
+
 export const PaymentWebhook = async (req, res) => {
   try {
     const secret = process.env.MYFATOORAH_WEBHOOK_SECRET;
@@ -254,6 +255,8 @@ export const PaymentWebhook = async (req, res) => {
 
       const rawBooking = tempBooking.bookingData;
       const bookingType = rawBooking.bookingType; // "flight" or "hotel"
+
+
 
       try {
         if (bookingType === "flight") {
@@ -823,7 +826,9 @@ export const saveDataToDb = async (req, res, next) => {
       invoiceId,
       bookingType: flightData ? "flight" : "hotel",
       bookingData: flightData
-        ? { flightOffer: flightData.flightOffer, travelers: flightData.travelers }
+        ? {
+          flightOffer: flightData.flightOffer, travelers: flightData.travelers, bookingType: flightData ? "flight" : "hotel",
+        }
         : { hotelData },
     });
 
