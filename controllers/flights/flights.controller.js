@@ -4,7 +4,8 @@ import axios from "axios";
 import Airport from "../../models/airport.model.js";
 import Airline from "../../models/Airline.model.js";
 
-const presentageCommission = 5;
+const presentageCommission = 5,
+  presentageVat = 15;
 
 // Helper function to format duration from ISO format (PT1H50M) to readable format
 const formatDuration = (isoDuration) => {
@@ -447,6 +448,7 @@ export const flightOffers = async (req, res, next) => {
         locations: response.data.dictionaries?.locations || {},
       },
       presentageCommission, // <-- your markup percentage
+      presentageVat,
     });
   } catch (error) {
     console.error("Amadeus API Error:", error.response?.data || error.message);
@@ -546,7 +548,7 @@ export const flightBooking = async (req, res, next) => {
     let orderData = response.data; // mutable
     const flightOrderId = orderData.data.id;
 
-    console.log("create order from controlller 4")
+    console.log("create order from controlller 4");
 
     // 2️⃣ Apply FM commission
     const commissionPayload = {
@@ -577,8 +579,7 @@ export const flightBooking = async (req, res, next) => {
       }
     );
 
-        console.log("fm added 5")
-
+    console.log("fm added 5");
 
     // 3️⃣ Issue ticket
     const issuanceRes = await axios.post(
@@ -592,9 +593,7 @@ export const flightBooking = async (req, res, next) => {
       }
     );
 
-
-        console.log("issuance done 6")
-
+    console.log("issuance done 6");
 
     // 4️⃣ Return issuance response (contains ticket info)
     return res.status(201).json({
