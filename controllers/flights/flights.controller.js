@@ -183,9 +183,8 @@ export const flightOffers = async (req, res, next) => {
       const mapping = offer.itineraries
         .map((itinerary) => {
           const segment = itinerary.segments[0];
-          return `${segment.departure.iataCode}-${segment.arrival.iataCode}|${
-            segment.departure.at.split("T")[0]
-          }|${segment.carrierCode}-${segment.number}`;
+          return `${segment.departure.iataCode}-${segment.arrival.iataCode}|${segment.departure.at.split("T")[0]
+            }|${segment.carrierCode}-${segment.number}`;
         })
         .join("||");
 
@@ -284,12 +283,12 @@ export const flightOffers = async (req, res, next) => {
           stops:
             segments.length > 1
               ? segments.slice(1).map((seg, idx) => ({
-                  airport: seg.fromAirport,
-                  arrivalTime: segments[idx].arrival_time,
-                  departureTime: seg.departure_time,
-                  duration: seg.stopDuration,
-                  airline: seg.carrierCode,
-                }))
+                airport: seg.fromAirport,
+                arrivalTime: segments[idx].arrival_time,
+                departureTime: seg.departure_time,
+                duration: seg.stopDuration,
+                airline: seg.carrierCode,
+              }))
               : [],
         };
       });
@@ -319,8 +318,7 @@ export const flightOffers = async (req, res, next) => {
           airportMap[
             offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
           ]?.name ||
-          `${
-            offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
+          `${offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
           } Airport`,
         flightType: offer.oneWay ? "OneWay" : "RoundTrip",
         adults: adults,
@@ -403,8 +401,8 @@ export const flightOffers = async (req, res, next) => {
                 tp.travelerType === "ADULT"
                   ? adults
                   : tp.travelerType === "CHILD"
-                  ? children
-                  : infants,
+                    ? children
+                    : infants,
             };
             return acc;
           },
@@ -456,7 +454,7 @@ export const flightOffers = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for flights"
+        "Error searching for flights"
       )
     );
   }
@@ -490,6 +488,7 @@ export const flightPricing = async (req, res, next) => {
       success: true,
       ...response.data,
       presentageCommission, // <-- your markup percentage
+      presentageVat
     });
   } catch (error) {
     console.error("Amadeus API Error:", error.response?.data || error.message);
@@ -497,7 +496,7 @@ export const flightPricing = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for flights"
+        "Error searching for flights"
       )
     );
   }
@@ -523,10 +522,20 @@ export const flightBooking = async (req, res, next) => {
         type: "flight-order",
         flightOffers: [flightOffer],
         travelers,
+        formOfPayments: [
+          {
+            creditCard: {
+              brand: "EASYPAY",
+              number: "2235292286157835",
+              expiryDate: "2026-01",
+              flightOfferIds: [flightOffer.id],
+            },
+          },
+        ],
         ...(ticketingAgreement &&
           Object.keys(ticketingAgreement).length > 0 && {
-            ticketingAgreement,
-          }),
+          ticketingAgreement,
+        }),
       },
     };
 

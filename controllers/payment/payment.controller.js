@@ -60,7 +60,7 @@ export const ExecutePayment = async (req, res, next) => {
       `${apiBase}/v2/ExecutePayment`,
       {
         SessionId: sessionId,
-        InvoiceValue: 1, //invoiceValue,
+        InvoiceValue: invoiceValue, //invoiceValue,
         ProcessingDetails: {
           AutoCapture: false, // We will capture in webhook after booking success
         },
