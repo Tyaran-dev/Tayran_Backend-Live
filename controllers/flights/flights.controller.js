@@ -557,6 +557,8 @@ export const flightBooking = async (req, res, next) => {
     let orderData = response.data; // mutable
     const flightOrderId = orderData.data.id;
 
+    console.log(orderData.data, "after create order")
+
     console.log("create order from controlller 4");
 
     // 2️⃣ Apply FM commission
