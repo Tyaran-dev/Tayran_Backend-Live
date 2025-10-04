@@ -827,7 +827,7 @@ export const saveDataToDb = async (req, res, next) => {
       bookingType: flightData ? "flight" : "hotel",
       bookingData: flightData
         ? {
-          flightOffer: flightData.flightOffer, travelers: flightData.travelers, bookingType: flightData ? "flight" : "hotel",
+          flightOffer: flightData.flightOffer, travelers: flightData.travelers, bookingType: "flight",
         }
         : { hotelData },
     });
