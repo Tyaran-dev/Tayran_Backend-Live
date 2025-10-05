@@ -29,7 +29,8 @@ export const InitiateSession = async (req, res, next) => {
 
 export const ExecutePayment = async (req, res, next) => {
   try {
-    const { sessionId, invoiceValue, flightData, travelers, hotelData } = req.body;
+    const { sessionId, invoiceValue, flightData, travelers, hotelData } =
+      req.body;
 
     const apiBase = process.env.MYFATOORAH_API_URL;
     const token = process.env.MYFATOORAH_TEST_TOKEN;
@@ -44,11 +45,18 @@ export const ExecutePayment = async (req, res, next) => {
     const hasHotelData = hotelData;
 
     if (!hasFlightData && !hasHotelData) {
-      return next(new ApiError(400, "Missing booking data: either flightData+travelers or hotelData required"));
+      return next(
+        new ApiError(
+          400,
+          "Missing booking data: either flightData+travelers or hotelData required"
+        )
+      );
     }
 
     if (hasFlightData && hasHotelData) {
-      return next(new ApiError(400, "Cannot have both flightData and hotelData"));
+      return next(
+        new ApiError(400, "Cannot have both flightData and hotelData")
+      );
     }
 
     // ✅ Tell MyFatoorah where to redirect after payment
@@ -88,14 +96,14 @@ export const ExecutePayment = async (req, res, next) => {
       bookingType: bookingType,
       bookingData: flightData
         ? {
-          flightOffer: flightData,
-          travelers,
-          bookingType: "flight" // Explicitly set for clarity
-        }
+            flightOffer: flightData,
+            travelers,
+            bookingType: "flight", // Explicitly set for clarity
+          }
         : {
-          hotelData,
-          bookingType: "hotel" // Explicitly set for clarity
-        },
+            hotelData,
+            bookingType: "hotel", // Explicitly set for clarity
+          },
     });
 
     // Send Payment URL back to frontend
@@ -103,7 +111,7 @@ export const ExecutePayment = async (req, res, next) => {
       success: true,
       paymentUrl: data?.Data?.PaymentURL,
       invoiceId,
-      bookingType: bookingType // Send back for frontend confirmation
+      bookingType: bookingType, // Send back for frontend confirmation
     });
   } catch (err) {
     console.error("ExecutePayment error:", err?.response?.data || err.message);
@@ -180,22 +188,27 @@ export function buildHotelBookingPayload({ hotelData, travelers, finalPrice }) {
 
   return {
     BookingCode: hotelData.BookingCode, // comes from your hotel data
-    BookingReferenceId: `TBO-BOOK-${Date.now()}`,
+    BookingReferenceId: "TBO-BOOK-" + Date.now(),
     BookingType: "Voucher",
-    ClientReferenceId: `BOOK-${Date.now()}`,
+    ClientReferenceId: "BOOK-" + Date.now(),
     CustomerDetails: [
       {
         RoomIndex: 0,
-        CustomerNames: travelers.map((traveler) => ({
-          Title: traveler.title,
-          FirstName: traveler.firstName,
-          LastName: traveler.lastName,
-          Type: traveler.travelerType || "Adult",
-        })),
+        CustomerNames: travelers.map(function (traveler) {
+          return {
+            Title: traveler.title,
+            FirstName: traveler.firstName,
+            LastName: traveler.lastName,
+            Type: traveler.travelerType || "Adult",
+          };
+        }),
       },
     ],
-    EmailId: travelers[0]?.email || "",
-    PhoneNumber: `${travelers[0]?.phoneCode || ""}${travelers[0]?.phoneNumber || ""}`.replace(/\s/g, ""),
+    EmailId: (travelers[0] && travelers[0].email) || "",
+    PhoneNumber: (
+      ((travelers[0] && travelers[0].phoneCode) || "") +
+      ((travelers[0] && travelers[0].phoneNumber) || "")
+    ).replace(/\s/g, ""),
     PaymentMode: "Limit",
     TotalFare: finalPrice,
   };
@@ -207,7 +220,7 @@ export const PaymentWebhook = async (req, res) => {
     const signature = req.headers["myfatoorah-signature"];
     const { Data } = req.body;
 
-    console.log("webhook fired  from webhook 1")
+    console.log("webhook fired  from webhook 1");
 
     if (!signature) {
       return res.status(400).json({ error: "Missing signature" });
@@ -239,15 +252,20 @@ export const PaymentWebhook = async (req, res) => {
     const InvoiceId = Data.Invoice.Id;
     const TransactionStatus = Data.Transaction.Status;
     const PaymentId = Data.Transaction.PaymentId;
+    const InvoiceValue = Data.ValueInPayCurrency;
 
     if (!InvoiceId) {
       return res.status(400).json({ error: "Missing InvoiceId" });
     }
 
-    if (TransactionStatus === "AUTHORIZE" || TransactionStatus === "Authorize") {
-
-      console.log("if condtion ")
-      const tempBooking = await TempBookingTicket.findOne({ invoiceId: InvoiceId });
+    if (
+      TransactionStatus === "AUTHORIZE" ||
+      TransactionStatus === "Authorize"
+    ) {
+      console.log("if condtion ");
+      const tempBooking = await TempBookingTicket.findOne({
+        invoiceId: InvoiceId,
+      });
       if (!tempBooking) {
         console.error("No booking data found for invoice:", InvoiceId);
         return res.status(404).json({ error: "Booking not found" });
@@ -255,8 +273,6 @@ export const PaymentWebhook = async (req, res) => {
 
       const rawBooking = tempBooking.bookingData;
       const bookingType = rawBooking.bookingType; // "flight" or "hotel"
-
-
 
       try {
         if (bookingType === "flight") {
@@ -273,14 +289,12 @@ export const PaymentWebhook = async (req, res) => {
             bookingPayload
           );
 
-          console.log(response, "response from webhook 3")
-
+          console.log(response, "response from webhook 3");
 
           if (response.status === 201) {
             const orderData = response.data.order;
 
-            console.log(response, "order done 201 from webhook 4")
-
+            console.log(response, "order done 201 from webhook 4");
 
             // Collect airline + airport codes
             const airlineCodes = new Set();
@@ -298,8 +312,8 @@ export const PaymentWebhook = async (req, res) => {
 
             const airlineDocs = airlineCodes.size
               ? await Airline.find({
-                airLineCode: { $in: Array.from(airlineCodes) },
-              })
+                  airLineCode: { $in: Array.from(airlineCodes) },
+                })
               : [];
 
             const airlineMap = airlineDocs.reduce((map, airline) => {
@@ -343,6 +357,9 @@ export const PaymentWebhook = async (req, res) => {
               invoiceId: InvoiceId,
               paymentId: PaymentId,
               status: "CONFIRMED",
+              InvoiceValue,
+              bookingType,
+              bookingPayload: rawBooking,
               orderData: {
                 ...orderData,
                 airlines: airlineMap,
@@ -353,20 +370,31 @@ export const PaymentWebhook = async (req, res) => {
             await axios.post(`${process.env.BASE_URL}/payment/captureAmount`, {
               Key: InvoiceId,
               KeyType: "InvoiceId",
+              InvoiceValue,
             });
-            console.log("✅ Flight booking success, payment captured:", InvoiceId);
+            console.log(
+              "✅ Flight booking success, payment captured:",
+              InvoiceId
+            );
           } else {
             await FinalBooking.create({
               invoiceId: InvoiceId,
               status: "FAILED",
+              InvoiceValue,
+              bookingType,
+              bookingPayload: rawBooking,
               orderData: response.data || null,
             });
 
             await axios.post(`${process.env.BASE_URL}/payment/releaseAmount`, {
               Key: InvoiceId,
               KeyType: "InvoiceId",
+              InvoiceValue,
             });
-            console.log("❌ Flight booking failed, payment released:", InvoiceId);
+            console.log(
+              "❌ Flight booking failed, payment released:",
+              InvoiceId
+            );
           }
         }
 
@@ -377,9 +405,13 @@ export const PaymentWebhook = async (req, res) => {
 
           console.log("Processing hotel booking with payload:", {
             invoiceId: InvoiceId,
+            InvoiceValue,
+            bookingType,
             bookingCode: hotelPayload.BookingCode,
-            customerCount: hotelPayload.CustomerDetails?.reduce((total, room) =>
-              total + (room.CustomerNames?.length || 0), 0)
+            customerCount: hotelPayload.CustomerDetails?.reduce(
+              (total, room) => total + (room.CustomerNames?.length || 0),
+              0
+            ),
           });
 
           const response = await axios.post(
@@ -392,39 +424,59 @@ export const PaymentWebhook = async (req, res) => {
               invoiceId: InvoiceId,
               paymentId: PaymentId,
               status: "CONFIRMED",
+              InvoiceValue,
+              bookingType,
+              bookingPayload: rawBooking,
               orderData: response.data.order,
             });
 
             await axios.post(`${process.env.BASE_URL}/payment/captureAmount`, {
               Key: InvoiceId,
               KeyType: "InvoiceId",
+              InvoiceValue,
             });
-            console.log("✅ Hotel booking success, payment captured:", InvoiceId);
+            console.log(
+              "✅ Hotel booking success, payment captured:",
+              InvoiceId
+            );
           } else {
             await FinalBooking.create({
               invoiceId: InvoiceId,
               status: "FAILED",
+              InvoiceValue,
+              bookingType,
+              bookingPayload: rawBooking,
               orderData: response.data || null,
             });
 
             await axios.post(`${process.env.BASE_URL}/payment/releaseAmount`, {
               Key: InvoiceId,
               KeyType: "InvoiceId",
+              InvoiceValue,
             });
-            console.log("❌ Hotel booking failed, payment released:", InvoiceId);
+            console.log(
+              "❌ Hotel booking failed, payment released:",
+              InvoiceId
+            );
           }
         }
       } catch (err) {
-        console.error("Booking API failed:", err?.response?.data || err.message);
+        console.error(
+          "Booking API failed:",
+          err?.response?.data || err.message
+        );
         await FinalBooking.create({
           invoiceId: InvoiceId,
           status: "FAILED",
+          InvoiceValue,
           orderData: null,
+          bookingType,
           bookingPayload: rawBooking,
         });
         await axios.post(`${process.env.BASE_URL}/payment/releaseAmount`, {
           Key: InvoiceId,
           KeyType: "InvoiceId",
+          InvoiceValue,
         });
       }
 
@@ -442,7 +494,6 @@ export const PaymentWebhook = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
-
 
 // old one
 // export const PaymentWebhook = async (req, res) => {
@@ -712,7 +763,9 @@ export const GetBookingStatus = async (req, res) => {
     }
 
     // 🔹 Check if already saved in DB
-    const booking = await FinalBooking.findOne({ invoiceId: resolvedInvoiceId });
+    const booking = await FinalBooking.findOne({
+      invoiceId: resolvedInvoiceId,
+    });
     if (booking) {
       return res.json({
         status: booking.status,
@@ -745,15 +798,17 @@ export const GetBookingStatus = async (req, res) => {
     // ⏳ Default fallback → still pending
     return res.json({ status: "PENDING" });
   } catch (err) {
-    console.error("GetBookingStatus error:", err?.response?.data || err.message);
+    console.error(
+      "GetBookingStatus error:",
+      err?.response?.data || err.message
+    );
     return res.status(500).json({ error: "Server error" });
   }
 };
 
-
 export const captureAuthorizedPayment = async (req, res, next) => {
   try {
-    const { Key, KeyType } = req.body; // keyType can be 'InvoiceId' or 'PaymentId' => Amount
+    const { Key, KeyType, InvoiceValue } = req.body; // keyType can be 'InvoiceId' or 'PaymentId' => Amount
 
     const apiBase = process.env.MYFATOORAH_API_URL;
     const token = process.env.MYFATOORAH_TEST_TOKEN;
@@ -762,7 +817,7 @@ export const captureAuthorizedPayment = async (req, res, next) => {
       `${apiBase}/v2/UpdatePaymentStatus`,
       {
         Operation: "capture",
-        Amount: 1,
+        Amount: InvoiceValue,
         Key: Key,
         KeyType: KeyType,
       },
@@ -781,7 +836,7 @@ export const captureAuthorizedPayment = async (req, res, next) => {
 
 export const releaseAuthorizedPayment = async (req, res, next) => {
   try {
-    const { Key, KeyType } = req.body; // keyType can be 'InvoiceId' or 'PaymentId'ك
+    const { Key, KeyType, InvoiceValue } = req.body; // keyType can be 'InvoiceId' or 'PaymentId'ك
 
     console.log(Key, KeyType);
 
@@ -792,7 +847,7 @@ export const releaseAuthorizedPayment = async (req, res, next) => {
       `${apiBase}/v2/UpdatePaymentStatus`,
       {
         Operation: "release",
-        Amount: 1,
+        Amount: InvoiceValue,
         Key: Key,
         KeyType: KeyType,
       },
@@ -809,12 +864,11 @@ export const releaseAuthorizedPayment = async (req, res, next) => {
   }
 };
 
-
 export const saveDataToDb = async (req, res, next) => {
   try {
     const { invoiceId, flightData, hotelData } = req.body;
 
-    console.log(req.body, "here123")
+    console.log(req.body, "here123");
 
     // ✅ Validate required fields
     if (!invoiceId || (!flightData && !hotelData)) {
@@ -827,8 +881,10 @@ export const saveDataToDb = async (req, res, next) => {
       bookingType: flightData ? "flight" : "hotel",
       bookingData: flightData
         ? {
-          flightOffer: flightData.flightOffer, travelers: flightData.travelers, bookingType: "flight",
-        }
+            flightOffer: flightData.flightOffer,
+            travelers: flightData.travelers,
+            bookingType: "flight",
+          }
         : { hotelData },
     });
 

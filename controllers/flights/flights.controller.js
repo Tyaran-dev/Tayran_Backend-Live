@@ -29,6 +29,35 @@ const formatTime = (isoTime) => {
   return `${hours}:${minutes} ${ampm}`;
 };
 
+// Safe function to extract checked/cabin bags info
+// ✅ Handles weight, quantity, or both
+// Handles both KG and PC baggage formats safely
+const getBagInfo = (bagData) => {
+  if (!bagData) return { text: "0 KG", value: 0, type: "none" };
+
+  // ✅ Case 1: weight-based (e.g., { weight: 20, weightUnit: "KG" })
+  if (bagData.weight) {
+    const unit = bagData.weightUnit || "KG";
+    return {
+      text: `${bagData.weight} ${unit}`,
+      value: bagData.weight,
+      type: "weight",
+    };
+  }
+
+  // ✅ Case 2: quantity-based (e.g., { quantity: 1 })
+  if (bagData.quantity) {
+    return {
+      text: `${bagData.quantity} PC`,
+      value: bagData.quantity,
+      type: "piece",
+    };
+  }
+
+  // ✅ Fallback
+  return { text: "0 KG", value: 0, type: "none" };
+};
+
 export const flightOffers = async (req, res, next) => {
   try {
     const lang = req.get("lng") || "en"; // Default to English if no language header
@@ -179,12 +208,21 @@ export const flightOffers = async (req, res, next) => {
 
     // Transform Amadeus response to your desired format
     const formattedResponse = response.data.data.map((offer, index) => {
+      const checkedBag = getBagInfo(
+        offer.travelerPricings?.[0]?.fareDetailsBySegment?.[0]
+          ?.includedCheckedBags
+      );
+      const cabinBag = getBagInfo(
+        offer.travelerPricings?.[0]?.fareDetailsBySegment?.[0]
+          ?.includedCabinBags
+      );
       // Create mapping string (CAI-MED|2025-05-28|XY-575||MED-CAI|2025-05-29|XY-576)
       const mapping = offer.itineraries
         .map((itinerary) => {
           const segment = itinerary.segments[0];
-          return `${segment.departure.iataCode}-${segment.arrival.iataCode}|${segment.departure.at.split("T")[0]
-            }|${segment.carrierCode}-${segment.number}`;
+          return `${segment.departure.iataCode}-${segment.arrival.iataCode}|${
+            segment.departure.at.split("T")[0]
+          }|${segment.carrierCode}-${segment.number}`;
         })
         .join("||");
 
@@ -283,12 +321,12 @@ export const flightOffers = async (req, res, next) => {
           stops:
             segments.length > 1
               ? segments.slice(1).map((seg, idx) => ({
-                airport: seg.fromAirport,
-                arrivalTime: segments[idx].arrival_time,
-                departureTime: seg.departure_time,
-                duration: seg.stopDuration,
-                airline: seg.carrierCode,
-              }))
+                  airport: seg.fromAirport,
+                  arrivalTime: segments[idx].arrival_time,
+                  departureTime: seg.departure_time,
+                  duration: seg.stopDuration,
+                  airline: seg.carrierCode,
+                }))
               : [],
         };
       });
@@ -318,7 +356,8 @@ export const flightOffers = async (req, res, next) => {
           airportMap[
             offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
           ]?.name ||
-          `${offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
+          `${
+            offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
           } Airport`,
         flightType: offer.oneWay ? "OneWay" : "RoundTrip",
         adults: adults,
@@ -342,43 +381,40 @@ export const flightOffers = async (req, res, next) => {
           (r) => r.category === "EXCHANGE" && r.notApplicable
         ),
         cabinClass: cabinClass || "ECONOMY",
-        allowedBags:
-          (offer.travelerPricings[0].fareDetailsBySegment[0].includedCheckedBags
-            ?.weight || 0) + " KG",
-        allowedCabinBags:
-          offer.travelerPricings[0].fareDetailsBySegment[0].includedCabinBags
-            ?.quantity || 0,
+        allowedBags: checkedBag.text,
+        allowedCabinBags: cabinBag.text,
         provider: "amadeus",
         itineraries_formated,
         fare_rules: offer.fareRules?.rules || [],
         pricing_options: offer.pricingOptions,
-        traveller_pricing: offer.travelerPricings.map((tp) => ({
-          travelerType: tp.travelerType,
-          total: tp.price.total,
-          base: tp.price.base,
-          tax: parseFloat(tp.price.total) - parseFloat(tp.price.base),
-          class: tp.fareDetailsBySegment[0].class,
-          allowedBags: {
-            quantity:
-              (tp.fareDetailsBySegment[0].includedCheckedBags?.weight || 0) +
-              " KG",
-            weight:
-              (tp.fareDetailsBySegment[0].includedCheckedBags?.weight || 0) +
-              " KG",
-          },
-          cabinBagsAllowed:
-            tp.fareDetailsBySegment[0].includedCabinBags?.quantity || 0,
+        traveller_pricing: offer.travelerPricings.map((tp) => {
+          const checkedBags = getBagInfo(
+            tp.fareDetailsBySegment[0].includedCheckedBags
+          );
+          const cabinBags = getBagInfo(
+            tp.fareDetailsBySegment[0].includedCabinBags
+          );
 
-          fareDetails: tp.fareDetailsBySegment.map((fds) => ({
-            segmentId: fds.segmentId,
-            cabin: fds.cabin,
-            fareBasis: fds.fareBasis,
-            class: fds.class,
-            // ✅ no backticks, just concatenation
-            bagsAllowed: (fds.includedCheckedBags?.weight || 0) + " KG",
-            cabinBagsAllowed: fds.includedCabinBags?.quantity || 0,
-          })),
-        })),
+          return {
+            travelerType: tp.travelerType,
+            total: tp.price.total,
+            base: tp.price.base,
+            tax: parseFloat(tp.price.total) - parseFloat(tp.price.base),
+            class: tp.fareDetailsBySegment[0].class,
+
+            allowedBags: checkedBags, // e.g. { text: "20 KG", value: 20, type: "weight" }
+            allowedCabinBags: cabinBags.text, // optional if you just want "8 KG"
+
+            fareDetails: tp.fareDetailsBySegment.map((fds) => ({
+              segmentId: fds.segmentId,
+              cabin: fds.cabin,
+              fareBasis: fds.fareBasis,
+              class: fds.class,
+              bagsAllowed: getBagInfo(fds.includedCheckedBags).text,
+              cabinBagsAllowed: getBagInfo(fds.includedCabinBags).text,
+            })),
+          };
+        }),
         baggage_details: offer.itineraries.flatMap((it, i) =>
           it.segments.map((seg) => ({
             "Flight Number": seg.number,
@@ -401,8 +437,8 @@ export const flightOffers = async (req, res, next) => {
                 tp.travelerType === "ADULT"
                   ? adults
                   : tp.travelerType === "CHILD"
-                    ? children
-                    : infants,
+                  ? children
+                  : infants,
             };
             return acc;
           },
@@ -454,7 +490,7 @@ export const flightOffers = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-        "Error searching for flights"
+          "Error searching for flights"
       )
     );
   }
@@ -488,7 +524,7 @@ export const flightPricing = async (req, res, next) => {
       success: true,
       ...response.data,
       presentageCommission, // <-- your markup percentage
-      presentageVat
+      presentageVat,
     });
   } catch (error) {
     console.error("Amadeus API Error:", error.response?.data || error.message);
@@ -496,7 +532,7 @@ export const flightPricing = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-        "Error searching for flights"
+          "Error searching for flights"
       )
     );
   }
@@ -534,8 +570,8 @@ export const flightBooking = async (req, res, next) => {
         ],
         ...(ticketingAgreement &&
           Object.keys(ticketingAgreement).length > 0 && {
-          ticketingAgreement,
-        }),
+            ticketingAgreement,
+          }),
       },
     };
 
@@ -557,7 +593,7 @@ export const flightBooking = async (req, res, next) => {
     let orderData = response.data; // mutable
     const flightOrderId = orderData.data.id;
 
-    console.log(orderData.data, "after create order")
+    console.log(orderData.data, "after create order");
 
     console.log("create order from controlller 4");
 
