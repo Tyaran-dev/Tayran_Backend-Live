@@ -252,7 +252,15 @@ export const PaymentWebhook = async (req, res) => {
     const InvoiceId = Data.Invoice.Id;
     const TransactionStatus = Data.Transaction.Status;
     const PaymentId = Data.Transaction.PaymentId;
-    const InvoiceValue = Data.ValueInPayCurrency;
+    const InvoiceValue = Number(Data.Amount?.ValueInPayCurrency);
+
+    const existing = await FinalBooking.findOne({ invoiceId: InvoiceId });
+    if (existing) {
+      console.log(`⚠️ Skipping duplicate invoice ${Data.Invoice.Id}`);
+      return res.status(200).json({ message: "Already processed" });
+    }
+
+    console.log(InvoiceValue, "55555");
 
     if (!InvoiceId) {
       return res.status(400).json({ error: "Missing InvoiceId" });
@@ -262,7 +270,6 @@ export const PaymentWebhook = async (req, res) => {
       TransactionStatus === "AUTHORIZE" ||
       TransactionStatus === "Authorize"
     ) {
-      console.log("if condtion ");
       const tempBooking = await TempBookingTicket.findOne({
         invoiceId: InvoiceId,
       });
@@ -294,7 +301,7 @@ export const PaymentWebhook = async (req, res) => {
           if (response.status === 201) {
             const orderData = response.data.order;
 
-            console.log(response, "order done 201 from webhook 4");
+            console.log(response.data, "order done 201 from webhook 4");
 
             // Collect airline + airport codes
             const airlineCodes = new Set();
@@ -367,15 +374,29 @@ export const PaymentWebhook = async (req, res) => {
               },
             });
 
-            await axios.post(`${process.env.BASE_URL}/payment/captureAmount`, {
-              Key: InvoiceId,
-              KeyType: "InvoiceId",
-              InvoiceValue,
-            });
-            console.log(
-              "✅ Flight booking success, payment captured:",
-              InvoiceId
-            );
+            // 3. Send success response IMMEDIATELY to MyFatoorah
+            res.status(200).json({ message: "Webhook processed successfully" });
+
+            // stuck here
+            setTimeout(async () => {
+              try {
+                await axios.post(
+                  `${process.env.BASE_URL}/payment/captureAmount`,
+                  {
+                    Key: InvoiceId,
+                    KeyType: "InvoiceId",
+                    InvoiceValue,
+                  }
+                );
+                console.log("✅ Capture successful for", InvoiceId);
+              } catch (err) {
+                console.error(
+                  "❌ Capture failed for",
+                  InvoiceId,
+                  err?.response?.data || err.message
+                );
+              }
+            }, 0);
           } else {
             await FinalBooking.create({
               invoiceId: InvoiceId,

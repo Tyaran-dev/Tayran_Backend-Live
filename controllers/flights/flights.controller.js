@@ -29,8 +29,6 @@ const formatTime = (isoTime) => {
   return `${hours}:${minutes} ${ampm}`;
 };
 
-// Safe function to extract checked/cabin bags info
-// ✅ Handles weight, quantity, or both
 // Handles both KG and PC baggage formats safely
 const getBagInfo = (bagData) => {
   if (!bagData) return { text: "0 KG", value: 0, type: "none" };
@@ -67,9 +65,13 @@ export const flightOffers = async (req, res, next) => {
       children,
       infants,
       cabinClass,
+      flightType,
       directFlight,
     } = req.body;
     const baseUrl = process.env.AMADEUS_BASE_URL;
+
+
+    console.log(flightType,"flightType from backend")
 
     // Validate and prepare request to Amadeus API
     const token = await getAmadeusToken();
@@ -359,7 +361,7 @@ export const flightOffers = async (req, res, next) => {
           `${
             offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
           } Airport`,
-        flightType: offer.oneWay ? "OneWay" : "RoundTrip",
+        flightType: flightType,
         adults: adults,
         children: children || 0,
         infants: infants || 0,
