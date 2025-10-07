@@ -220,6 +220,7 @@ export const hotelsSearch = async (req, res, next) => {
       );
       return {
         ...hotel,
+        ...matched,
         MinHotelPrice:
           matched?.Rooms?.[0]?.DayRates?.[0]?.[0]?.BasePrice || null,
         presentageCommission
