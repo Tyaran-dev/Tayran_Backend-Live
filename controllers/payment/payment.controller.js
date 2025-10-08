@@ -270,15 +270,25 @@ export const PaymentWebhook = async (req, res) => {
       TransactionStatus === "AUTHORIZE" ||
       TransactionStatus === "Authorize"
     ) {
-      const tempBooking = await TempBookingTicket.findOne({
-        invoiceId: InvoiceId,
-      });
-      if (!tempBooking) {
-        console.error("No booking data found for invoice:", InvoiceId);
-        return res.status(404).json({ error: "Booking not found" });
+      // Idempotency guard: atomically claim this invoice to avoid duplicate processing on webhook retries
+      const claimedBooking = await TempBookingTicket.findOneAndUpdate(
+        { invoiceId: InvoiceId, status: { $in: ["pending"] } },
+        { $set: { status: "authorized" } },
+        { new: true }
+      );
+
+      // If already processed or not found, exit early (either another retry claimed it, or it was already deleted)
+      if (!claimedBooking) {
+        const alreadyFinalized = await FinalBooking.findOne({ invoiceId: InvoiceId });
+        if (alreadyFinalized) {
+          console.log(`⚠️ Duplicate webhook for ${InvoiceId} ignored (already finalized)`);
+          return res.status(200).json({ message: "Already processed" });
+        }
+        console.log(`⚠️ No temp booking to process for ${InvoiceId}; ignoring retry`);
+        return res.status(200).json({ message: "No action" });
       }
 
-      const rawBooking = tempBooking.bookingData;
+      const rawBooking = claimedBooking.bookingData;
       const bookingType = rawBooking.bookingType; // "flight" or "hotel"
 
       try {
