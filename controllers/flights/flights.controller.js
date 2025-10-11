@@ -3,6 +3,7 @@ import { getAmadeusToken } from "../../utils/amadeus-token.js";
 import axios from "axios";
 import Airport from "../../models/airport.model.js";
 import Airline from "../../models/Airline.model.js";
+import { whiteListAirLines } from "../../db/airlines.js";
 
 const presentageCommission = 5,
   presentageVat = 15;
@@ -70,15 +71,12 @@ export const flightOffers = async (req, res, next) => {
     } = req.body;
     const baseUrl = process.env.AMADEUS_BASE_URL;
 
-
-    console.log(flightType,"flightType from backend")
-
     // Validate and prepare request to Amadeus API
     const token = await getAmadeusToken();
-    let travelersId = 1; // Start with 1
+    let travelersId = 1;
     const travelers = [];
 
-    // Add adults
+    // Adults
     for (let i = 0; i < adults; i++) {
       travelers.push({
         id: (travelersId++).toString(),
@@ -87,7 +85,15 @@ export const flightOffers = async (req, res, next) => {
       });
     }
 
-    // Add children
+    const adultIds = travelers
+      .filter(t => t.travelerType === "ADULT")
+      .map(t => t.id);
+
+    if (infants > adults) {
+      throw new ApiError(400, "Each infant must be accompanied by an adult");
+    }
+
+    // Children
     for (let i = 0; i < children; i++) {
       travelers.push({
         id: (travelersId++).toString(),
@@ -96,13 +102,14 @@ export const flightOffers = async (req, res, next) => {
       });
     }
 
-    // Add infants
+    // Infants
     for (let i = 0; i < infants; i++) {
+      const associatedAdultId = adultIds[i];
       travelers.push({
         id: (travelersId++).toString(),
         travelerType: "HELD_INFANT",
         fareOptions: ["STANDARD"],
-        associatedAdultId: "1", // or dynamically assign to actual adult ID
+        associatedAdultId,
       });
     }
     const response = await axios.post(
@@ -149,8 +156,14 @@ export const flightOffers = async (req, res, next) => {
       }
     );
 
+    const whiteListedFlights = response.data.data.filter(flight => {
+      const airlineCodes = flight.validatingAirlineCodes || [];
+      // ✅ keep flight only if ALL codes are whitelisted
+      return airlineCodes.every(code => whiteListAirLines.includes(code));
+    });
+
     // Check if Amadeus returned data
-    if (!response.data?.data || response.data.data.length === 0) {
+    if (!whiteListedFlights || whiteListedFlights === 0) {
       return res.status(200).json({
         success: true,
         data: [],
@@ -163,14 +176,17 @@ export const flightOffers = async (req, res, next) => {
       });
     }
 
-    // Safe extract carriers
+    // get all carriersCodes
     const carriersCodes = Object.keys(
       response.data.dictionaries?.carriers || {}
     );
 
+    // now filtrtion these code based on white list airlines
+    const whiteListedCarriersCodes = carriersCodes.filter(code => whiteListAirLines.includes(code));
+
     // fetch airline docs only if codes exist
-    const airlineDocs = carriersCodes.length
-      ? await Airline.find({ airLineCode: { $in: carriersCodes } })
+    const airlineDocs = whiteListedCarriersCodes.length
+      ? await Airline.find({ airLineCode: { $in: whiteListedCarriersCodes } })
       : [];
 
     // build map
@@ -209,7 +225,7 @@ export const flightOffers = async (req, res, next) => {
     }, {});
 
     // Transform Amadeus response to your desired format
-    const formattedResponse = response.data.data.map((offer, index) => {
+    const formattedResponse = whiteListedFlights.map((offer, index) => {
       const checkedBag = getBagInfo(
         offer.travelerPricings?.[0]?.fareDetailsBySegment?.[0]
           ?.includedCheckedBags
@@ -222,9 +238,8 @@ export const flightOffers = async (req, res, next) => {
       const mapping = offer.itineraries
         .map((itinerary) => {
           const segment = itinerary.segments[0];
-          return `${segment.departure.iataCode}-${segment.arrival.iataCode}|${
-            segment.departure.at.split("T")[0]
-          }|${segment.carrierCode}-${segment.number}`;
+          return `${segment.departure.iataCode}-${segment.arrival.iataCode}|${segment.departure.at.split("T")[0]
+            }|${segment.carrierCode}-${segment.number}`;
         })
         .join("||");
 
@@ -323,12 +338,12 @@ export const flightOffers = async (req, res, next) => {
           stops:
             segments.length > 1
               ? segments.slice(1).map((seg, idx) => ({
-                  airport: seg.fromAirport,
-                  arrivalTime: segments[idx].arrival_time,
-                  departureTime: seg.departure_time,
-                  duration: seg.stopDuration,
-                  airline: seg.carrierCode,
-                }))
+                airport: seg.fromAirport,
+                arrivalTime: segments[idx].arrival_time,
+                departureTime: seg.departure_time,
+                duration: seg.stopDuration,
+                airline: seg.carrierCode,
+              }))
               : [],
         };
       });
@@ -358,8 +373,7 @@ export const flightOffers = async (req, res, next) => {
           airportMap[
             offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
           ]?.name ||
-          `${
-            offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
+          `${offer.itineraries.slice(-1)[0].segments[0].arrival.iataCode
           } Airport`,
         flightType: flightType,
         adults: adults,
@@ -439,8 +453,8 @@ export const flightOffers = async (req, res, next) => {
                 tp.travelerType === "ADULT"
                   ? adults
                   : tp.travelerType === "CHILD"
-                  ? children
-                  : infants,
+                    ? children
+                    : infants,
             };
             return acc;
           },
@@ -492,7 +506,7 @@ export const flightOffers = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for flights"
+        "Error searching for flights"
       )
     );
   }
@@ -534,7 +548,7 @@ export const flightPricing = async (req, res, next) => {
       new ApiError(
         error.response?.status || 500,
         error.response?.data?.errors?.[0]?.detail ||
-          "Error searching for flights"
+        "Error searching for flights"
       )
     );
   }
@@ -572,8 +586,8 @@ export const flightBooking = async (req, res, next) => {
         ],
         ...(ticketingAgreement &&
           Object.keys(ticketingAgreement).length > 0 && {
-            ticketingAgreement,
-          }),
+          ticketingAgreement,
+        }),
       },
     };
 
