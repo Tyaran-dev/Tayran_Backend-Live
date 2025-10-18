@@ -384,10 +384,7 @@ export const PaymentWebhook = async (req, res) => {
               },
             });
 
-            // 3. Send success response IMMEDIATELY to MyFatoorah
-            res.status(200).json({ message: "Webhook processed successfully" });
-
-            // stuck here
+            // 3. Capture payment asynchronously
             setTimeout(async () => {
               try {
                 await axios.post(
