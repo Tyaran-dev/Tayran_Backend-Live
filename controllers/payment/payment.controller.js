@@ -797,7 +797,7 @@ export const GetBookingStatus = async (req, res) => {
     if (booking) {
       return res.json({
         status: booking.status,
-        order: booking.orderData || null,
+        order: booking || null,
       });
     }
 
